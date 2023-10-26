@@ -61,7 +61,10 @@ class TicTacToe(AlternatingGame):
             ev += 1 - np.sum(list(map(lambda j: np.any(grid[j,j] == op), range(3))))
             ev += 1 - np.sum(list(map(lambda j: np.any(grid[j,2-j] == op), range(3))))
             evalp[p] = ev
-        return (evalp[0] - evalp[1]) / 8.
+        return (evalp[0] - evalp[1]) / 8
+    
+    def render(self):
+        self.env.render()
 
 
 
