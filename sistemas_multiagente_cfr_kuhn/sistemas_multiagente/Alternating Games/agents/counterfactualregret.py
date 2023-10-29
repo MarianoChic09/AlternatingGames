@@ -25,6 +25,9 @@ class CounterFactualRegret(Agent):
 
     def action(self):
         try:
+            obs = self.game.observe(self.agent)
+            print(type(obs))  # Print out the type of the observation
+            print(obs)        # Print out the observation itself
             node = self.node_dict[self.game.observe(self.agent)]
             a = np.argmax(np.random.multinomial(1, node.policy(), size=1))
             return a

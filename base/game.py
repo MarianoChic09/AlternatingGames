@@ -48,6 +48,11 @@ class AlternatingGame(AECEnv):
     
     def available_actions(self):
         pass
+    def utility(self, agent: AgentID):
+        # Assume zero-sum game for simplicity
+        return self.rewards[agent] - sum(self.rewards[a] for a in self.agents if a != agent)
+    def is_terminal(self):
+        return self.terminated()
 
 
 
