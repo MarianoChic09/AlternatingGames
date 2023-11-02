@@ -19,7 +19,7 @@ class TicTacToe(AlternatingGame):
         self.action_space = self.env.action_space
         self.agents = self.env.agents
         self.agent_name_mapping = dict(zip(self.agents, list(range(self.num_agents))))
-        self._cumulative_rewards = {agent: 0.0 for agent in self.env.agents}
+        # self._cumulative_rewards = {agent: 0.0 for agent in self.env.agents}
 
     def _update(self):
         self.rewards = self.env.rewards
@@ -27,13 +27,13 @@ class TicTacToe(AlternatingGame):
         self.truncations = self.env.truncations
         self.infos = self.env.infos
         self.agent_selection = self.env.agent_selection
-        self._cumulative_rewards = self.env._cumulative_rewards  # Add this line
+        # self._cumulative_rewards = self.env._cumulative_rewards  # Add this line
 
     def reset(self):
 
         self.env.reset()
         self._update()
-        self._cumulative_rewards = {agent: 0 for agent in self.agents}
+        # self._cumulative_rewards = {agent: 0 for agent in self.agents}
 
     def observe(self, agent: AgentID) -> ObsType:
         # A grid is list of lists, where each list represents a row
@@ -49,8 +49,8 @@ class TicTacToe(AlternatingGame):
         return tuple(grid.flat)
 
     def step(self, action):
-        for agent in self.agents:
-            self._cumulative_rewards[agent] += self.rewards.get(agent, 0.0)
+        # for agent in self.agents:
+        #     self._cumulative_rewards[agent] += self.rewards.get(agent, 0.0)
         self.env.step(action)
         self._update()
 

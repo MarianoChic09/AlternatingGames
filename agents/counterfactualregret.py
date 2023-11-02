@@ -20,7 +20,14 @@ class Node():
 
 
     def update(self, utility, node_utility, probability) -> None:
-        action_regrets = (utility - node_utility) / probability[self.agent]
+        logging.debug(f"Agent index: {self.agent}")
+        logging.debug(f"Probability array: {probability}")
+        logging.debug(f"utility: {utility}")  
+        logging.debug(f"node_utility: {node_utility}")  
+            
+        agent_index = self.game.agent_name_mapping[self.agent]
+
+        action_regrets = (utility - node_utility) / probability[agent_index]
         self.cumulative_regrets = np.maximum(0, self.cumulative_regrets + action_regrets)
 
     def policy(self):
@@ -84,7 +91,6 @@ class CounterFactualRegret(Agent):
             self.cfr_rec(game=game, agent=agent, probability=probability)
 
     def cfr_rec(self, game: AlternatingGame, agent: AgentID, probability: ndarray):
-        game = game.clone()
     
         node_agent = game.agent_selection
         logging.debug(f"Node agent: {node_agent}")
@@ -93,8 +99,8 @@ class CounterFactualRegret(Agent):
         # base cases
         if game.is_terminal():
             return game.utility(agent)
-        if node_agent != agent:
-            return self.eval_node(game, node_agent, probability)
+        # if node_agent != agent:
+        #     return self.eval_node(game, node_agent, probability)
         # recursive call
 
         # get observation node
@@ -112,41 +118,40 @@ class CounterFactualRegret(Agent):
         # compute expected (node) utility
         utility = np.zeros(game.num_actions(node_agent))
         for a in game.action_iter(node_agent):
-            legal_moves = game.available_actions()  # Get legal moves
+            if game.done():
+                logging.debug(f"Game terminated in CFR Recursive step, returning utility: {game.utility(agent)}")
+                return game.reward(agent)
+            game_clone = game.clone()
+            legal_moves = game_clone.available_actions()  # Get legal moves
+
             logging.debug(f"Legal moves: {legal_moves}")
             if a not in legal_moves:  # Skip illegal moves
                 continue
              # update probability vector
             logging.debug(f"Attempting action {a} in game state {obs}")
-            assert a in legal_moves, f"Illegal move {a} attempted in game state {game}"
             prob_a = node.policy()[a]
             
             
             probability_new = probability.copy()
             agent_index = self.game.agent_name_mapping[node_agent]
             probability_new[agent_index] = prob_a
-            # probability_new[node_agent] = prob_a
-            logging.debug(type(node_agent))
-            logging.debug(probability_new.shape)
-            logging.debug(prob_a)
-            logging.debug(probability_new.size)
 
             # play the game
             # game.step(node_agent, a)
-            logging.debug(f"Current game state: {game}")
-            logging.debug(f"Action: {a}")
-            logging.debug(f"Legal moves: {game.available_actions()}")
-            game.step(a)
+
+            logging.debug(f"Legal moves: {game_clone.available_actions()}")
+            game_clone.step(a)
             # call cfr recursively on updated game with new probability and update node utility
              
-            node, obs = self.get_node(node_agent,game)
-            logging.debug(f"Before recursive call, game state: {game}, attempting action: {a}")
-            utility[a] = self.cfr_rec(game, agent, probability_new)
-            node, obs = self.get_node(node_agent,game)        
-            logging.debug(f"After recursive call, game state: {obs}")
+            node, obs = self.get_node(node_agent,game_clone)
+            logging.debug(f"Before recursive call, game state: {game_clone}, attempting action: {a}")
 
-            # undo the action to restore game state
-            # game.undo()
+
+            utility[a] = self.cfr_rec(game_clone, agent, probability_new)
+
+            
+            node, obs = self.get_node(node_agent,game_clone)        
+            logging.debug(f"After recursive call, game state: {obs}")
 
         node_utility = np.sum(utility * node.curr_policy)
 
@@ -161,41 +166,41 @@ class CounterFactualRegret(Agent):
 
         return node_utility
         
-    def eval_node(self, game: AlternatingGame, node_agent: AgentID, probability: ndarray) -> float:
-        game = game.clone()
+    # def eval_node(self, game: AlternatingGame, node_agent: AgentID, probability: ndarray) -> float:
+    #     game = game.clone()
 
-        node,obs = self.get_node(node_agent,game)
-        logging.debug(f"Entering eval_node, game state: {obs}")
-
-
-        expected_utility = 0.0
-        for a in game.action_iter(node_agent):
-            legal_moves = game.available_actions()  # Get legal moves
-            logging.debug(f"Legal moves: {legal_moves}")
-            if a not in legal_moves:  # Skip illegal moves
-                continue
-            logging.debug(f"Attempting action {a} in game state {obs}")
+    #     node,obs = self.get_node(node_agent,game)
+    #     logging.debug(f"Entering eval_node, game state: {obs}")
 
 
-            prob_a = node.policy()[a]
-            probability_new = probability.copy()
-            agent_index = game.agent_name_mapping[node_agent]
-            probability_new[agent_index] = prob_a
+    #     expected_utility = 0.0
+    #     for a in game.action_iter(node_agent):
+    #         legal_moves = game.available_actions()  # Get legal moves
+    #         logging.debug(f"Legal moves: {legal_moves}")
+    #         if a not in legal_moves:  # Skip illegal moves
+    #             continue
+    #         logging.debug(f"Attempting action {a} in game state {obs}")
 
-            game.step(a)
-            expected_utility += prob_a * self.cfr_rec(game, node_agent, probability_new)
-            node, obs = self.get_node(node_agent,game)
-            logging.debug(f"Before undo, game state: {obs}")
 
-            # game.undo()
+    #         prob_a = node.policy()[a]
+    #         probability_new = probability.copy()
+    #         agent_index = game.agent_name_mapping[node_agent]
+    #         probability_new[agent_index] = prob_a
+
+    #         game.step(a)
+    #         expected_utility += prob_a * self.cfr_rec(game, node_agent, probability_new)
+    #         node, obs = self.get_node(node_agent,game)
+    #         logging.debug(f"Before undo, game state: {obs}")
+
+    #         # game.undo()
             
-            node, obs = self.get_node(node_agent,game)
-            logging.debug(f"After undo, game state: {obs}")
+    #         node, obs = self.get_node(node_agent,game)
+    #         logging.debug(f"After undo, game state: {obs}")
         
-        node, obs = self.get_node(node_agent,game)
-        logging.debug(f"Exiting eval_node, game state: {game}")
+    #     node, obs = self.get_node(node_agent,game)
+    #     logging.debug(f"Exiting eval_node, game state: {game}")
 
-        return expected_utility
+    #     return expected_utility
     
     def get_node(self, agent: AgentID, game: AlternatingGame = None):
         obs = game.observe(agent)

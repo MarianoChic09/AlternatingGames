@@ -1,4 +1,4 @@
 gymnasium
-pettingzoo
+pettingzoo==1.23.1
 numpy
 pygame
