@@ -3,6 +3,9 @@ from base.agent import Agent
 from math import log, sqrt
 import numpy as np
 from typing import Callable
+import logging
+
+logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class MCTSNode:
     def __init__(self, parent: 'MCTSNode', game: AlternatingGame, action: ActionType):
@@ -18,6 +21,12 @@ class MCTSNode:
 
 def ucb(node, C=sqrt(2)) -> float:
     agent_idx = node.game.agent_name_mapping[node.agent]  # Indice del agente del nodo
+    
+    logging.debug(f'node.cum_rewards: {node.cum_rewards}')
+    logging.debug(f'node.visits: {node.visits}')
+    logging.debug(f'node.parent.visits: {node.parent.visits}')
+    logging.debug(f'agent_idx: {agent_idx}')
+    
     return node.cum_rewards[agent_idx] / node.visits + C * sqrt(log(node.parent.visits)/node.visits) # Calculo del Upper Confidence Bound. 
                 # Cuando un nodo hijo es poco explorado, empieza a llamar la atención. 
 
@@ -46,7 +55,7 @@ class MonteCarloTreeSearch(Agent):
         return a # Devuelve una acción luego de haber hecho el MCTS
 
     def mcts(self) -> (ActionType, float):
-
+        logging.debug('MCTS')
         root = MCTSNode(parent=None, game=self.game, action=None) # Nodo raiz del arbol de busqueda. primer nodo del arbol.
 
         for i in range(self.simulations):
@@ -54,22 +63,22 @@ class MonteCarloTreeSearch(Agent):
             node = root
             node.game = self.game.clone()
 
-            #print(i)
-            #node.game.render()
+            logging.debug(f'Simulation {i}')
+            node.game.render()
 
             # selection
-            #print('selection')
+            logging.debug('selection')
             node = self.select_node(node=node) # La primera vez  deberias quedar en el nodo raiz. No deberias hacer nada. 
-
+            logging.debug(f'Selected node: {node.action}')
             # expansion
             #print('expansion')
             self.expand_node(node) # si el juego no esta terminado jugar una available action del nodo y crear un nuevo nodo hijo.
-            
+            logging.debug(f'Expanded node: {node.action}')
             # Aca podes decir que el nodo sea el nodo nuevo : node = self.expand_node(node)
             # rollout
             #print('rollout')
             rewards = self.rollout(node) # Jugar aleatoriamente y guardar el promedio de las recompensas.
-
+            logging.debug(f'Rollout rewards: {rewards}')
             #update values / Backprop
             #print('backprop')
             self.backprop(node, rewards)
@@ -86,7 +95,7 @@ class MonteCarloTreeSearch(Agent):
         # TODO
         # update node values and visits from node to root navigating backwards through parent
         curr_node = node
-        while curr_node.parent:
+        while curr_node is not None: #.parent:
             agent_idx = curr_node.game.agent_name_mapping[curr_node.agent]
             curr_node.cum_rewards[agent_idx] += rewards[agent_idx]
             curr_node.visits += 1
@@ -107,37 +116,49 @@ class MonteCarloTreeSearch(Agent):
         # implement rollout policy
         for i in range(self.rollouts): 
             game = node.game.clone()
-            while not game.done():
+            while not game.is_terminal():
                 available_action = game.available_actions()
                 action = np.random.choice(available_action)
                 game.step(action)
-            rewards += game.rewards()
+            
+            rewards += [game.reward(agent) for agent in self.game.agents]
         #     play random game and record average rewards
         return rewards
 
     def select_node(self, node: MCTSNode) -> MCTSNode:
         curr_node = node
+        logging.debug(f'curr_node: {curr_node.action}')
+        logging.debug(f'curr_node.children: {curr_node.children}')
         while curr_node.children:
-            if curr_node.explored_children < len(curr_node.children):
+            visited_child = [child for child in curr_node.children if child.visits > 0]
+            unvisited_child = [child for child in curr_node.children if child not in visited_child]
+            
+            logging.debug(f'visited_child: {visited_child}')
+            logging.debug(f'unvisited_child: {unvisited_child}')
+            # if curr_node.explored_children < len(curr_node.children):
+            if unvisited_child:
                 # TODO
                 # set curr_node to an unvisited child
-                visited_child = [child for child in curr_node.children if child.visits > 0]
-                unvisited_child = [child for child in curr_node.children if child not in visited_child]
                 
-                curr_node = np.random.choice(unvisited_child) # mejor de izquierda a derecha. 
+                curr_node = np.random.choice(unvisited_child) # mejor de izquierda a derecha.
+                logging.debug(f'curr_node: {curr_node}') 
+                logging.debug(f'curr_node action: {curr_node.action}')
+                
                 curr_node.explored_children += 1
-                pass
+                logging.debug(f'curr_node.explored_children: {curr_node.explored_children}')
+                
+                # pass
             else:
                 # TODO
                 # set curr_node to a child using the selection function
                 curr_node = self.selection(curr_node, self.agent) # utilizo la funcion de seleccion (UCB/UCT) para elegir el siguiente nodo.
-                pass
+                # pass
         return curr_node
 
     def expand_node(self, node) -> None: # Crear un nuevo nodo en mi arbol simplemente. 
         # TODO
         # if the game is not terminated: 
-        if not node.game.done():
+        if not node.game.terminated():
             available_action = self.game.available_actions()
             action = np.random.choice(available_action)
             self.game.step(action)
