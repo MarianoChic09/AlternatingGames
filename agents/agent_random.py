@@ -12,4 +12,7 @@ class RandomAgent(Agent):
     
     def policy(self):
         raise ValueError('RandomAgent: Not implemented')
+    def train(self, niter=100):
+        # No training needed for RandomAgent
+        pass
     
