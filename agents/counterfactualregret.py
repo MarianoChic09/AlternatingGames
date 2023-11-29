@@ -98,19 +98,6 @@ class CounterFactualRegret(Agent):
         # logging.debug(f"Training agent {self.agent}")
         for i in range(niter):
             self.cfr()
-            
-               
-            # current_utility = self.calculate_utility()  # Implement this method
-            # total_regret = sum(node.cumulative_regret() for node in self.node_dict.values())
-            # current_strategy = self.calculate_strategy()  # Implement this method
-
-            # # self.utilities.append(current_utility)
-            # self.cumulative_regrets_display.append(total_regret)
-            # self.strategy_evolution.append(current_strategy)
-            # if i % 100 == 0:  # adjust frequency as needed
-            #     # Store strategies from key nodes
-            #     key_node_strategy = {obs: node.policy() for obs, node in self.node_dict.items() if ...}  # specify key nodes condition
-            #     self.strategy_evolution.append(key_node_strategy)
 
     def calculate_utility(self):
         # Implement logic to calculate utility

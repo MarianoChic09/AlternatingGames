@@ -8,7 +8,7 @@ from base.game import AlternatingGame, AgentID, ActionType
 from math import log, sqrt
 from typing import Callable
 
-logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 #, stream=sys.stdout
 class MCTSNode:
     def __init__(self, parent: 'MCTSNode', game: AlternatingGame, action: ActionType):
@@ -90,13 +90,15 @@ class Node():
         return np.sum(self.cumulative_regrets)
 class CounterFactualRegretMCTS(Agent):
 
-    def __init__(self, game: AlternatingGame, agent: AgentID, max_depth = 2) -> None: #eval_function=Callable[[MCTSNode, AgentID], MCTSNode]=uct
+    def __init__(self, game: AlternatingGame, agent: AgentID, max_depth: int=2, rollouts: int=10,selection: Callable[[MCTSNode, AgentID], MCTSNode]=uct) -> None: #
         super().__init__(game, agent)
         self.node_dict: dict[ObsType, Node] = {}
         self.utilities = []
         self.cumulative_regrets_display = []
         self.strategy_evolution = []  # To store the strategy profile after each iteration
         self.max_depth = max_depth
+        self.rollouts = rollouts
+        self.selection = selection
 
     def action(self):
         try:
@@ -130,19 +132,6 @@ class CounterFactualRegretMCTS(Agent):
         # logging.debug(f"Training agent {self.agent}")
         for i in range(niter):
             self.cfr()
-            
-               
-            # current_utility = self.calculate_utility()  # Implement this method
-            # total_regret = sum(node.cumulative_regret() for node in self.node_dict.values())
-            # current_strategy = self.calculate_strategy()  # Implement this method
-
-            # # self.utilities.append(current_utility)
-            # self.cumulative_regrets_display.append(total_regret)
-            # self.strategy_evolution.append(current_strategy)
-            # if i % 100 == 0:  # adjust frequency as needed
-            #     # Store strategies from key nodes
-            #     key_node_strategy = {obs: node.policy() for obs, node in self.node_dict.items() if ...}  # specify key nodes condition
-            #     self.strategy_evolution.append(key_node_strategy)
 
     def calculate_utility(self):
         # Implement logic to calculate utility
@@ -160,7 +149,7 @@ class CounterFactualRegretMCTS(Agent):
             # self.utilities[agent] = 
             self.cfr_rec(game=game, agent=agent, probability=probability)
 
-    def cfr_rec(self, game: AlternatingGame, agent: AgentID, probability: ndarray,depth=0):
+    def cfr_rec(self, game: AlternatingGame, agent: AgentID, probability: ndarray,depth=2):
     
         node_agent = game.agent_selection
         logging.debug(f"Node agent: {node_agent}")
@@ -175,6 +164,19 @@ class CounterFactualRegretMCTS(Agent):
             # Use MCTS for utility estimation
             mcts_root = MCTSNode(parent=None, game=game, action=None)
             _, estimated_utility = self.mcts(game, simulations=100)
+
+            # Get the current observation and corresponding CFR node
+            obs = game.observe(node_agent)
+            node = self.node_dict.get(obs, Node(game=game, agent=node_agent, obs=obs))
+            self.node_dict[obs] = node  # Ensure node is stored in node_dict
+            assumed_probabilities = np.ones(game.num_agents) / game.num_agents
+            logging.debug(f"Assumed probabilities: {assumed_probabilities}")
+            logging.debug(f"Estimated utility: {estimated_utility}")
+
+            node.update(utility=np.zeros(game.num_actions(node_agent)), 
+                        node_utility=estimated_utility, 
+                        probability=probability)
+
             return estimated_utility  # Or further processing depending on your game's nature
 
         # if self.depth == 0:
@@ -213,7 +215,8 @@ class CounterFactualRegretMCTS(Agent):
             probability_new = probability.copy()
             agent_index = game_clone.agent_name_mapping[node_agent]
             probability_new[agent_index] = probability[agent_index] * node.curr_policy[a] # Pp + Pi
-
+            
+            logging.debug(f"Probability array: {probability_new}")
             # play the game
             # game.step(node_agent, a)
 
@@ -282,6 +285,9 @@ class CounterFactualRegretMCTS(Agent):
         #    print(child.action, child.cum_rewards / child.visits)
 
         action, value = self.action_selection(root)
+        logging.debug(f'Action: {action}')
+        logging.debug(f'Value: {value}')
+        
 
         return action, value
 
@@ -348,10 +354,10 @@ class CounterFactualRegretMCTS(Agent):
         # TODO
         # if the game is not terminated: 
         if not node.game.terminated():
-            available_action = self.game.available_actions()
+            available_action = node.game.available_actions()
             action = np.random.choice(available_action)
-            self.game.step(action)
-            child = MCTSNode(parent=node, game=self.game, action=action)
+            node.game.step(action) # decia self.game
+            child = MCTSNode(parent=node, game=node.game, action=action)
             node.children.append(child)
             # node = child
             return child
