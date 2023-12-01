@@ -8,7 +8,7 @@ from base.game import AlternatingGame, AgentID, ActionType
 from math import log, sqrt
 from typing import Callable
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 #, stream=sys.stdout
 class MCTSNode:
     def __init__(self, parent: 'MCTSNode', game: AlternatingGame, action: ActionType):
